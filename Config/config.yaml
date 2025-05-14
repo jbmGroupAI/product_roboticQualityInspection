@@ -1,0 +1,72 @@
+PLC:
+  IP: 0.0.0.0
+  Port: 12345
+
+PLC_Registers:
+  Position_No: 100
+  Light_Trigger: 10
+  Robot_Home: 7
+  Robot_Running_Status: 13 
+  Cycle_Complete: 14
+  Robot_Emergency: 1
+  Servo_Status: 4
+  Robot_Resume: 11
+
+Position_Wise_Actions:
+  1: [Camera, Light]
+  2: [Camera, Light]
+  3: [Camera, Light]
+  4: [Camera, Light]
+  5: [Camera, Light]
+  6: [Camera, Light]
+  7: [Camera, Light]
+  8: [Camera, Light]
+  9: [Camera, Light]
+  10: [Profiler]
+  11: []
+  12: [LaserImage, Profiler_center]
+  
+Position_Exposure:
+  1: 13500
+  2: 13500
+  3: 13500
+  4: 13500
+  5: 8500
+  6: 4500
+  7: 4500
+  8: 4500
+  9: 8500
+  
+Use_Camera: False
+  
+Use_Gabor_Filter: False
+  
+Weld_Reference_ROIs:
+  "1":
+    reference_image: "references/ok_pos1.jpg"
+    roi: [62, 1185, 257, 765]  
+  "2":
+    reference_image: "references/ok_pos2.jpg"
+    roi: [640, 1390, 560, 505]
+  "3":
+    reference_image: "references/ok_pos3.jpg"
+    roi: [215, 1537, 585, 505]
+  "4":
+    reference_image: "references/ok_pos4.jpg"
+    roi: [640, 1390, 560, 505]
+  "5":
+    reference_image: "references/ok_pos5.jpg"
+    roi: [110, 1250, 1057, 270]
+  "6":
+    reference_image: "references/ok_pos6.jpg"
+    roi: [762, 950, 705, 687]
+  "7":
+    reference_image: "references/ok_pos7.jpg"
+    roi: [805, 982, 802, 520]
+  "8":
+    reference_image: "references/ok_pos8.jpg"
+    roi: [210, 62, 770, 1127]
+  "9":
+    reference_image: "references/ok_pos9.jpg"
+    roi: [90, 925, 700, 877]
+
