@@ -642,3 +642,55 @@ Compression: XZ data is compressed with zlib; images are base64-encoded JPEGs.
 Configuration Caching: config.yaml is loaded once at startup.
 Error Handling: Early validation minimizes unnecessary processing.
 
+
+## Add Master Profile API
+
+### Endpoint
+`POST /add_master_profile`
+
+### Description
+Add master profile data for a specific event. This allows you to store the master raw profile and detected gaps for an event. During actual runs, you can pass the event name/id to compare against this master data.
+
+### Request Body
+```
+{
+  "event_name": "string",           // Name of the event (e.g., "weld_event_1")
+  "raw_profile": [float, ...],       // List of raw profile values (floats or ints)
+  "gaps": [                         // List of detected gaps
+    {
+      "x_min": float,
+      "x_max": float,
+      "width": float,
+      // ... any other relevant fields ...
+    },
+    // ... more gaps ...
+  ]
+}
+```
+
+### Example Request
+```
+curl -X POST http://localhost:8000/add_master_profile \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_name": "weld_event_1",
+    "raw_profile": [0.1, 0.2, 0.3, 0.4],
+    "gaps": [
+      {"x_min": 10.0, "x_max": 12.0, "width": 2.0},
+      {"x_min": 20.0, "x_max": 22.0, "width": 2.0}
+    ]
+  }'
+```
+
+### Response
+```
+{
+  "message": "Master data for event 'weld_event_1' added successfully."
+}
+```
+
+### Notes
+- The master data is stored in memory for now (not persistent).
+- You can later extend this to use a database or file storage.
+- When running actual inspections, pass the event name/id to compare against this master data.
+

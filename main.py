@@ -1,7 +1,7 @@
 import base64
 import zlib
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from pydantic import BaseModel
 from datetime import datetime
 import uuid
@@ -442,6 +442,28 @@ def validate_feature(feature: DetectedFeature, master: ProfilerMasterData) -> Fe
         },
         message="; ".join(message_parts) if message_parts else "All parameters within tolerance"
     )
+
+# In-memory storage for master data
+MASTER_DATA_STORE = {}
+
+class MasterProfileData(BaseModel):
+    event_name: str
+    raw_profile: list  # List of floats or ints representing the raw profile
+    gaps: list  # List of dicts, each with x_min, x_max, width, etc.
+
+@app.post("/add_master_profile")
+def add_master_profile(data: MasterProfileData = Body(...)):
+    """
+    Add master profile data for a specific event.
+    - event_name: Name of the event (string)
+    - raw_profile: List of raw profile values (list of floats/ints)
+    - gaps: List of detected gaps (list of dicts with x_min, x_max, width, etc.)
+    """
+    MASTER_DATA_STORE[data.event_name] = {
+        "raw_profile": data.raw_profile,
+        "gaps": data.gaps
+    }
+    return {"message": f"Master data for event '{data.event_name}' added successfully."}
 
 if __name__ == "__main__":
     import uvicorn
