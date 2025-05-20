@@ -1,0 +1,60 @@
+PLC:
+  host: "192.168.1.100"
+  port: 502
+  unit_id: 1
+
+PLC_Registers:
+  Position_No: 100
+  Light_Trigger: 10
+
+Position_Wise_Actions:
+  "1": ["Camera"]
+  "2": ["Camera", "Light"]
+  "3": ["Profiler"]
+  "4": ["Profiler", "Camera", "Light"]
+
+Use_Camera: true
+
+Profiler_Master_Data:
+  event_4:
+    expected_holes: 2
+    expected_nuts: 1
+    hole_positions:
+      - x_min: 10.0
+        x_max: 12.0
+        width: 2.0
+        thresholds:
+          position_tolerance: 0.5  # mm
+          width_tolerance: 0.3     # mm
+          depth_tolerance: 0.2     # mm
+          expected_depth: -1.0     # mm
+      - x_min: 20.0
+        x_max: 22.0
+        width: 2.0
+        thresholds:
+          position_tolerance: 0.5
+          width_tolerance: 0.3
+          depth_tolerance: 0.2
+          expected_depth: -1.0
+    nut_positions:
+      - x_min: 30.0
+        x_max: 32.0
+        width: 2.0
+        thresholds:
+          position_tolerance: 0.5
+          width_tolerance: 0.3
+          depth_tolerance: 0.2
+          expected_depth: 1.0
+    global_thresholds:
+      min_confidence: 0.85
+      max_position_deviation: 1.0
+      max_width_deviation: 0.5
+      max_depth_deviation: 0.3
+
+Weld_Reference_ROIs:
+  "1":
+    roi: [100, 100, 200, 200]
+    reference_image: "references/weld_1.jpg"
+  "2":
+    roi: [150, 150, 250, 250]
+    reference_image: "references/weld_2.jpg" 
