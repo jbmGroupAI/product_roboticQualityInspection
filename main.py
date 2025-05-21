@@ -9,6 +9,8 @@ from typing import List, Optional, Dict, Any
 import asyncio
 import yaml
 from gap_detector import GapDetector, GapConfig
+import os
+import json
 
 app = FastAPI(title="Robotic Inspection System API")
 
@@ -480,7 +482,15 @@ class CompareProfileDataV2(BaseModel):
     nuts: list[FeatureWithThresholds]
 
 # In-memory storage for master data (new format)
-MASTER_DATA_STORE_V2 = {}
+MASTER_DATA_FILE = "master_profiles.json"
+
+# Load master data from file at startup
+if os.path.exists(MASTER_DATA_FILE):
+    with open(MASTER_DATA_FILE, "r") as f:
+        try:
+            MASTER_DATA_STORE_V2 = json.load(f)
+        except Exception:
+            MASTER_DATA_STORE_V2 = {}
 
 @app.post("/add_master_profile")
 def add_master_profile_v2(data: MasterProfileDataV2 = Body(...)):
@@ -493,6 +503,9 @@ def add_master_profile_v2(data: MasterProfileDataV2 = Body(...)):
     - global_thresholds: Thresholds for validation
     """
     MASTER_DATA_STORE_V2[data.event_name] = data.dict()
+    # Save to file for persistence
+    with open(MASTER_DATA_FILE, "w") as f:
+        json.dump(MASTER_DATA_STORE_V2, f, indent=2)
     return {"message": f"Master data for event '{data.event_name}' added successfully."}
 
 @app.post("/compare_to_master")
