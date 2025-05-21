@@ -443,70 +443,101 @@ def validate_feature(feature: DetectedFeature, master: ProfilerMasterData) -> Fe
         message="; ".join(message_parts) if message_parts else "All parameters within tolerance"
     )
 
-# In-memory storage for master data
-MASTER_DATA_STORE = {}
+# Updated models for new format
+class Profile1D(BaseModel):
+    X: list
+    Z: list
 
-class MasterProfileData(BaseModel):
+class Thresholds(BaseModel):
+    position_tolerance: float
+    width_tolerance: float
+    depth_tolerance: float
+    expected_depth: float
+
+class FeatureWithThresholds(BaseModel):
+    x_min: float
+    x_max: float
+    width: float
+    thresholds: Thresholds
+
+class GlobalThresholdsModel(BaseModel):
+    min_confidence: float
+    max_position_deviation: float
+    max_width_deviation: float
+    max_depth_deviation: float
+
+class MasterProfileDataV2(BaseModel):
     event_name: str
-    raw_profile: list  # List of floats or ints representing the raw profile
-    gaps: list  # List of dicts, each with x_min, x_max, width, etc.
+    raw_profile: Profile1D
+    holes: list[FeatureWithThresholds]
+    nuts: list[FeatureWithThresholds]
+    global_thresholds: GlobalThresholdsModel
+
+class CompareProfileDataV2(BaseModel):
+    event_name: str
+    raw_profile: Profile1D
+    holes: list[FeatureWithThresholds]
+    nuts: list[FeatureWithThresholds]
+
+# In-memory storage for master data (new format)
+MASTER_DATA_STORE_V2 = {}
 
 @app.post("/add_master_profile")
-def add_master_profile(data: MasterProfileData = Body(...)):
+def add_master_profile_v2(data: MasterProfileDataV2 = Body(...)):
     """
-    Add master profile data for a specific event.
+    Add master profile data for a specific event (new format).
     - event_name: Name of the event (string)
-    - raw_profile: List of raw profile values (list of floats/ints)
-    - gaps: List of detected gaps (list of dicts with x_min, x_max, width, etc.)
+    - raw_profile: {X: [...], Z: [...]}
+    - holes: List of features with thresholds
+    - nuts: List of features with thresholds
+    - global_thresholds: Thresholds for validation
     """
-    MASTER_DATA_STORE[data.event_name] = {
-        "raw_profile": data.raw_profile,
-        "gaps": data.gaps
-    }
+    MASTER_DATA_STORE_V2[data.event_name] = data.dict()
     return {"message": f"Master data for event '{data.event_name}' added successfully."}
 
-class CompareProfileData(BaseModel):
-    event_name: str
-    raw_profile: list  # List of floats or ints representing the raw profile
-    gaps: list  # List of dicts, each with x_min, x_max, width, etc.
-
 @app.post("/compare_to_master")
-def compare_to_master(data: CompareProfileData = Body(...)):
+def compare_to_master_v2(data: CompareProfileDataV2 = Body(...)):
     """
-    Compare actual run data to master data for a specific event.
+    Compare actual run data to master data for a specific event (new format).
     - event_name: Name of the event (string)
-    - raw_profile: List of raw profile values (list of floats/ints)
-    - gaps: List of detected gaps (list of dicts with x_min, x_max, width, etc.)
+    - raw_profile: {X: [...], Z: [...]}
+    - holes: List of features (no thresholds needed)
+    - nuts: List of features (no thresholds needed)
     """
-    master = MASTER_DATA_STORE.get(data.event_name)
+    master = MASTER_DATA_STORE_V2.get(data.event_name)
     if not master:
         return {"error": f"No master data found for event '{data.event_name}'"}
 
-    master_gaps = master["gaps"]
-    actual_gaps = data.gaps
+    def compare_features(master_list, actual_list):
+        results = []
+        min_len = min(len(master_list), len(actual_list))
+        for i in range(min_len):
+            mg = master_list[i]
+            ag = actual_list[i]
+            result = {
+                "index": i,
+                "master": mg,
+                "actual": ag,
+                "x_min_deviation": abs(mg["x_min"] - ag["x_min"]),
+                "x_max_deviation": abs(mg["x_max"] - ag["x_max"]),
+                "width_deviation": abs(mg["width"] - ag["width"]),
+            }
+            results.append(result)
+        return results
 
-    # Simple comparison: count, and for each gap, compare x_min, x_max, width
-    results = []
-    min_len = min(len(master_gaps), len(actual_gaps))
-    for i in range(min_len):
-        mg = master_gaps[i]
-        ag = actual_gaps[i]
-        result = {
-            "index": i,
-            "master": mg,
-            "actual": ag,
-            "x_min_deviation": abs(mg["x_min"] - ag["x_min"]),
-            "x_max_deviation": abs(mg["x_max"] - ag["x_max"]),
-            "width_deviation": abs(mg["width"] - ag["width"]),
-        }
-        results.append(result)
+    holes_comparison = compare_features(master["holes"], [h.dict() for h in data.holes])
+    nuts_comparison = compare_features(master["nuts"], [n.dict() for n in data.nuts])
 
     comparison = {
         "event_name": data.event_name,
-        "master_gap_count": len(master_gaps),
-        "actual_gap_count": len(actual_gaps),
-        "gap_count_match": len(master_gaps) == len(actual_gaps),
-        "gap_comparisons": results
+        "master_hole_count": len(master["holes"]),
+        "actual_hole_count": len(data.holes),
+        "hole_count_match": len(master["holes"]) == len(data.holes),
+        "hole_comparisons": holes_comparison,
+        "master_nut_count": len(master["nuts"]),
+        "actual_nut_count": len(data.nuts),
+        "nut_count_match": len(master["nuts"]) == len(data.nuts),
+        "nut_comparisons": nuts_comparison
     }
     return comparison
 

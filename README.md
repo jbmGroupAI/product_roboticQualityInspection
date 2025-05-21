@@ -643,28 +643,45 @@ Configuration Caching: config.yaml is loaded once at startup.
 Error Handling: Early validation minimizes unnecessary processing.
 
 
-## Add Master Profile API
+## Add Master Profile API (New Format)
 
 ### Endpoint
 `POST /add_master_profile`
 
 ### Description
-Add master profile data for a specific event. This allows you to store the master raw profile and detected gaps for an event. During actual runs, you can pass the event name/id to compare against this master data.
+Add master profile data for a specific event. This allows you to store the master raw profile and detected holes/nuts for an event. During actual runs, you can pass the event name/id to compare against this master data.
 
 ### Request Body
 ```
 {
-  "event_name": "string",           // Name of the event (e.g., "weld_event_1")
-  "raw_profile": [float, ...],       // List of raw profile values (floats or ints)
-  "gaps": [                         // List of detected gaps
+  "event_name": "event_4",
+  "raw_profile": {
+    "X": [1722, 1710, ...],
+    "Z": [4807, 4826, ...]
+  },
+  "holes": [
     {
-      "x_min": float,
-      "x_max": float,
-      "width": float,
-      // ... any other relevant fields ...
-    },
-    // ... more gaps ...
-  ]
+      "x_min": 10.0,
+      "x_max": 12.0,
+      "width": 2.0,
+      "thresholds": {
+        "position_tolerance": 0.5,
+        "width_tolerance": 0.3,
+        "depth_tolerance": 0.2,
+        "expected_depth": -1.0
+      }
+    }
+    // ... more holes ...
+  ],
+  "nuts": [
+    // ... same structure as holes ...
+  ],
+  "global_thresholds": {
+    "min_confidence": 0.85,
+    "max_position_deviation": 1.0,
+    "max_width_deviation": 0.5,
+    "max_depth_deviation": 0.3
+  }
 }
 ```
 
@@ -673,48 +690,75 @@ Add master profile data for a specific event. This allows you to store the maste
 curl -X POST http://localhost:8000/add_master_profile \
   -H "Content-Type: application/json" \
   -d '{
-    "event_name": "weld_event_1",
-    "raw_profile": [0.1, 0.2, 0.3, 0.4],
-    "gaps": [
-      {"x_min": 10.0, "x_max": 12.0, "width": 2.0},
-      {"x_min": 20.0, "x_max": 22.0, "width": 2.0}
-    ]
+    "event_name": "event_4",
+    "raw_profile": {
+      "X": [1722, 1710, 1700],
+      "Z": [4807, 4826, 4834]
+    },
+    "holes": [
+      {
+        "x_min": 10.0,
+        "x_max": 12.0,
+        "width": 2.0,
+        "thresholds": {
+          "position_tolerance": 0.5,
+          "width_tolerance": 0.3,
+          "depth_tolerance": 0.2,
+          "expected_depth": -1.0
+        }
+      }
+    ],
+    "nuts": [],
+    "global_thresholds": {
+      "min_confidence": 0.85,
+      "max_position_deviation": 1.0,
+      "max_width_deviation": 0.5,
+      "max_depth_deviation": 0.3
+    }
   }'
 ```
 
 ### Response
 ```
 {
-  "message": "Master data for event 'weld_event_1' added successfully."
+  "message": "Master data for event 'event_4' added successfully."
 }
 ```
 
-### Notes
-- The master data is stored in memory for now (not persistent).
-- You can later extend this to use a database or file storage.
-- When running actual inspections, pass the event name/id to compare against this master data.
+---
 
-## Compare to Master API
+## Compare to Master API (New Format)
 
 ### Endpoint
 `POST /compare_to_master`
 
 ### Description
-Compare actual run data (raw profile and detected gaps) to the master data for a specific event. Returns a detailed comparison including gap count match and per-gap deviations.
+Compare actual run data (raw profile and detected holes/nuts) to the master data for a specific event. Returns a detailed comparison including count match and per-feature deviations.
 
 ### Request Body
 ```
 {
-  "event_name": "string",           // Name of the event (e.g., "weld_event_1")
-  "raw_profile": [float, ...],       // List of raw profile values (floats or ints)
-  "gaps": [                         // List of detected gaps
+  "event_name": "event_4",
+  "raw_profile": {
+    "X": [1722, 1710, ...],
+    "Z": [4807, 4826, ...]
+  },
+  "holes": [
     {
-      "x_min": float,
-      "x_max": float,
-      "width": float,
-      // ... any other relevant fields ...
-    },
-    // ... more gaps ...
+      "x_min": 10.1,
+      "x_max": 12.1,
+      "width": 2.1,
+      "thresholds": {
+        "position_tolerance": 0.5,
+        "width_tolerance": 0.3,
+        "depth_tolerance": 0.2,
+        "expected_depth": -1.0
+      }
+    }
+    // ... more holes ...
+  ],
+  "nuts": [
+    // ...
   ]
 }
 ```
@@ -724,40 +768,49 @@ Compare actual run data (raw profile and detected gaps) to the master data for a
 curl -X POST http://localhost:8000/compare_to_master \
   -H "Content-Type: application/json" \
   -d '{
-    "event_name": "weld_event_1",
-    "raw_profile": [0.1, 0.2, 0.3, 0.4],
-    "gaps": [
-      {"x_min": 10.1, "x_max": 12.1, "width": 2.1},
-      {"x_min": 20.2, "x_max": 22.2, "width": 2.2}
-    ]
+    "event_name": "event_4",
+    "raw_profile": {
+      "X": [1722, 1710, 1700],
+      "Z": [4807, 4826, 4834]
+    },
+    "holes": [
+      {
+        "x_min": 10.1,
+        "x_max": 12.1,
+        "width": 2.1,
+        "thresholds": {
+          "position_tolerance": 0.5,
+          "width_tolerance": 0.3,
+          "depth_tolerance": 0.2,
+          "expected_depth": -1.0
+        }
+      }
+    ],
+    "nuts": []
   }'
 ```
 
 ### Example Response
 ```
 {
-  "event_name": "weld_event_1",
-  "master_gap_count": 2,
-  "actual_gap_count": 2,
-  "gap_count_match": true,
-  "gap_comparisons": [
+  "event_name": "event_4",
+  "master_hole_count": 1,
+  "actual_hole_count": 1,
+  "hole_count_match": true,
+  "hole_comparisons": [
     {
       "index": 0,
-      "master": {"x_min": 10.0, "x_max": 12.0, "width": 2.0},
-      "actual": {"x_min": 10.1, "x_max": 12.1, "width": 2.1},
+      "master": {"x_min": 10.0, "x_max": 12.0, "width": 2.0, ...},
+      "actual": {"x_min": 10.1, "x_max": 12.1, "width": 2.1, ...},
       "x_min_deviation": 0.1,
       "x_max_deviation": 0.1,
       "width_deviation": 0.1
-    },
-    {
-      "index": 1,
-      "master": {"x_min": 20.0, "x_max": 22.0, "width": 2.0},
-      "actual": {"x_min": 20.2, "x_max": 22.2, "width": 2.2},
-      "x_min_deviation": 0.2,
-      "x_max_deviation": 0.2,
-      "width_deviation": 0.2
     }
-  ]
+  ],
+  "master_nut_count": 0,
+  "actual_nut_count": 0,
+  "nut_count_match": true,
+  "nut_comparisons": []
 }
 ```
 
