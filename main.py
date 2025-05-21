@@ -501,32 +501,84 @@ def compare_to_master_v2(data: CompareProfileDataV2 = Body(...)):
     Compare actual run data to master data for a specific event (new format).
     - event_name: Name of the event (string)
     - raw_profile: {X: [...], Z: [...]}
-    - holes: List of features (no thresholds needed)
-    - nuts: List of features (no thresholds needed)
+    - holes: List of features (with thresholds for comparison)
+    - nuts: List of features (with thresholds for comparison)
+    Returns per-feature pass/fail and deviation details.
     """
     master = MASTER_DATA_STORE_V2.get(data.event_name)
     if not master:
         return {"error": f"No master data found for event '{data.event_name}'"}
 
-    def compare_features(master_list, actual_list):
+    def match_features(master_list, actual_list, feature_type):
         results = []
-        min_len = min(len(master_list), len(actual_list))
-        for i in range(min_len):
+        max_len = max(len(master_list), len(actual_list))
+        for i in range(max_len):
+            if i >= len(master_list):
+                # Extra actual feature, no master to compare
+                results.append({
+                    "index": i,
+                    "master": None,
+                    "actual": actual_list[i].dict(),
+                    "is_match": False,
+                    "message": f"Extra {feature_type} detected (no master to compare)",
+                })
+                continue
+            if i >= len(actual_list):
+                # Missing actual feature
+                results.append({
+                    "index": i,
+                    "master": master_list[i],
+                    "actual": None,
+                    "is_match": False,
+                    "message": f"Missing {feature_type} in actual data",
+                })
+                continue
             mg = master_list[i]
-            ag = actual_list[i]
-            result = {
+            ag = actual_list[i].dict()
+            # Calculate deviations
+            x_min_dev = abs(mg["x_min"] - ag["x_min"])
+            x_max_dev = abs(mg["x_max"] - ag["x_max"])
+            width_dev = abs(mg["width"] - ag["width"])
+            # Depth comparison (optional, if present)
+            depth_dev = None
+            if "expected_depth" in mg["thresholds"] and "thresholds" in ag and "expected_depth" in ag["thresholds"]:
+                depth_dev = abs(mg["thresholds"]["expected_depth"] - ag["thresholds"]["expected_depth"])
+            # Thresholds
+            pos_tol = mg["thresholds"]["position_tolerance"]
+            width_tol = mg["thresholds"]["width_tolerance"]
+            depth_tol = mg["thresholds"].get("depth_tolerance", None)
+            # Pass/fail
+            is_match = (
+                x_min_dev <= pos_tol and
+                x_max_dev <= pos_tol and
+                width_dev <= width_tol and
+                (depth_dev is None or depth_dev <= depth_tol)
+            )
+            # Message
+            msg_parts = []
+            if x_min_dev > pos_tol or x_max_dev > pos_tol:
+                msg_parts.append(f"Position deviation exceeds tolerance ({x_min_dev:.2f}, {x_max_dev:.2f} > {pos_tol})")
+            if width_dev > width_tol:
+                msg_parts.append(f"Width deviation exceeds tolerance ({width_dev:.2f} > {width_tol})")
+            if depth_dev is not None and depth_tol is not None and depth_dev > depth_tol:
+                msg_parts.append(f"Depth deviation exceeds tolerance ({depth_dev:.2f} > {depth_tol})")
+            if not msg_parts:
+                msg_parts.append("All parameters within tolerance")
+            results.append({
                 "index": i,
                 "master": mg,
                 "actual": ag,
-                "x_min_deviation": abs(mg["x_min"] - ag["x_min"]),
-                "x_max_deviation": abs(mg["x_max"] - ag["x_max"]),
-                "width_deviation": abs(mg["width"] - ag["width"]),
-            }
-            results.append(result)
+                "x_min_deviation": x_min_dev,
+                "x_max_deviation": x_max_dev,
+                "width_deviation": width_dev,
+                "depth_deviation": depth_dev,
+                "is_match": is_match,
+                "message": "; ".join(msg_parts)
+            })
         return results
 
-    holes_comparison = compare_features(master["holes"], [h.dict() for h in data.holes])
-    nuts_comparison = compare_features(master["nuts"], [n.dict() for n in data.nuts])
+    holes_comparison = match_features(master["holes"], data.holes, "hole")
+    nuts_comparison = match_features(master["nuts"], data.nuts, "nut")
 
     comparison = {
         "event_name": data.event_name,
