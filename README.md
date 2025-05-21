@@ -818,3 +818,70 @@ curl -X POST http://localhost:8000/compare_to_master \
 - If no master data is found for the event, the response will include an error message.
 - You can extend the comparison logic to include more fields or tolerances as needed.
 
+
+## Master Profile CRUD API
+
+### List All Master Profiles
+`GET /list_master_profiles`
+
+**Description:**
+Returns a list of all event names for which master profiles exist.
+
+**Example Request:**
+```
+curl http://localhost:8000/list_master_profiles
+```
+**Example Response:**
+```
+{
+  "event_names": ["event_4", "event_5"]
+}
+```
+
+---
+
+### Get a Master Profile
+`GET /get_master_profile/{event_name}`
+
+**Description:**
+Returns the full master profile for the given event name.
+
+**Example Request:**
+```
+curl http://localhost:8000/get_master_profile/event_4
+```
+**Example Response:**
+```
+{
+  "event_name": "event_4",
+  "raw_profile": {"X": [...], "Z": [...]},
+  "holes": [...],
+  "nuts": [...],
+  "global_thresholds": {...}
+}
+```
+
+---
+
+### Delete a Master Profile
+`DELETE /delete_master_profile/{event_name}`
+
+**Description:**
+Deletes the master profile for the given event name.
+
+**Example Request:**
+```
+curl -X DELETE http://localhost:8000/delete_master_profile/event_4
+```
+**Example Response:**
+```
+{
+  "message": "Master data for event 'event_4' deleted successfully."
+}
+```
+
+---
+
+### Edit a Master Profile
+Use `POST /add_master_profile` with the same event name to update/replace the profile.
+
