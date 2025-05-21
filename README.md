@@ -694,3 +694,74 @@ curl -X POST http://localhost:8000/add_master_profile \
 - You can later extend this to use a database or file storage.
 - When running actual inspections, pass the event name/id to compare against this master data.
 
+## Compare to Master API
+
+### Endpoint
+`POST /compare_to_master`
+
+### Description
+Compare actual run data (raw profile and detected gaps) to the master data for a specific event. Returns a detailed comparison including gap count match and per-gap deviations.
+
+### Request Body
+```
+{
+  "event_name": "string",           // Name of the event (e.g., "weld_event_1")
+  "raw_profile": [float, ...],       // List of raw profile values (floats or ints)
+  "gaps": [                         // List of detected gaps
+    {
+      "x_min": float,
+      "x_max": float,
+      "width": float,
+      // ... any other relevant fields ...
+    },
+    // ... more gaps ...
+  ]
+}
+```
+
+### Example Request
+```
+curl -X POST http://localhost:8000/compare_to_master \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_name": "weld_event_1",
+    "raw_profile": [0.1, 0.2, 0.3, 0.4],
+    "gaps": [
+      {"x_min": 10.1, "x_max": 12.1, "width": 2.1},
+      {"x_min": 20.2, "x_max": 22.2, "width": 2.2}
+    ]
+  }'
+```
+
+### Example Response
+```
+{
+  "event_name": "weld_event_1",
+  "master_gap_count": 2,
+  "actual_gap_count": 2,
+  "gap_count_match": true,
+  "gap_comparisons": [
+    {
+      "index": 0,
+      "master": {"x_min": 10.0, "x_max": 12.0, "width": 2.0},
+      "actual": {"x_min": 10.1, "x_max": 12.1, "width": 2.1},
+      "x_min_deviation": 0.1,
+      "x_max_deviation": 0.1,
+      "width_deviation": 0.1
+    },
+    {
+      "index": 1,
+      "master": {"x_min": 20.0, "x_max": 22.0, "width": 2.0},
+      "actual": {"x_min": 20.2, "x_max": 22.2, "width": 2.2},
+      "x_min_deviation": 0.2,
+      "x_max_deviation": 0.2,
+      "width_deviation": 0.2
+    }
+  ]
+}
+```
+
+### Notes
+- If no master data is found for the event, the response will include an error message.
+- You can extend the comparison logic to include more fields or tolerances as needed.
+

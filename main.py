@@ -465,6 +465,51 @@ def add_master_profile(data: MasterProfileData = Body(...)):
     }
     return {"message": f"Master data for event '{data.event_name}' added successfully."}
 
+class CompareProfileData(BaseModel):
+    event_name: str
+    raw_profile: list  # List of floats or ints representing the raw profile
+    gaps: list  # List of dicts, each with x_min, x_max, width, etc.
+
+@app.post("/compare_to_master")
+def compare_to_master(data: CompareProfileData = Body(...)):
+    """
+    Compare actual run data to master data for a specific event.
+    - event_name: Name of the event (string)
+    - raw_profile: List of raw profile values (list of floats/ints)
+    - gaps: List of detected gaps (list of dicts with x_min, x_max, width, etc.)
+    """
+    master = MASTER_DATA_STORE.get(data.event_name)
+    if not master:
+        return {"error": f"No master data found for event '{data.event_name}'"}
+
+    master_gaps = master["gaps"]
+    actual_gaps = data.gaps
+
+    # Simple comparison: count, and for each gap, compare x_min, x_max, width
+    results = []
+    min_len = min(len(master_gaps), len(actual_gaps))
+    for i in range(min_len):
+        mg = master_gaps[i]
+        ag = actual_gaps[i]
+        result = {
+            "index": i,
+            "master": mg,
+            "actual": ag,
+            "x_min_deviation": abs(mg["x_min"] - ag["x_min"]),
+            "x_max_deviation": abs(mg["x_max"] - ag["x_max"]),
+            "width_deviation": abs(mg["width"] - ag["width"]),
+        }
+        results.append(result)
+
+    comparison = {
+        "event_name": data.event_name,
+        "master_gap_count": len(master_gaps),
+        "actual_gap_count": len(actual_gaps),
+        "gap_count_match": len(master_gaps) == len(actual_gaps),
+        "gap_comparisons": results
+    }
+    return comparison
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
